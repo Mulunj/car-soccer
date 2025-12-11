@@ -12,13 +12,13 @@ export const GameConfig = {
 
   // Vehicle physics
   vehicle: {
-    mass: 150, // Slightly reduced mass
-    width: 2.2, // Significantly narrower to prevent ground clipping (was 3.5)
-    length: 4.8,
+    mass: 350, // Slightly reduced mass
+    width: 3, // Significantly narrower to prevent ground clipping (was 3.5)
+    length: 6,
     height: 1.2, // Lower profile
     maxSpeed: 45, 
     maxSpin: 6,
-    acceleration: 20,
+    acceleration: 10,
     braking: 30,
     turnSpeed: 3.0,
     jumpForce: 10,

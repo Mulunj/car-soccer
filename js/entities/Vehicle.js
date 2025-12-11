@@ -69,7 +69,7 @@ export class Vehicle {
       axleLocal: new CANNON.Vec3(0, 0, 1),
       chassisConnectionPointLocal: new CANNON.Vec3(1, 1, 0),
       maxSuspensionTravel: 0.3,
-      customSlidingRotationalSpeed: -30,
+      customSlidingRotationalSpeed: -20,
       useCustomSlidingRotationalSpeed: true
     };
     
@@ -177,7 +177,7 @@ export class Vehicle {
     }
     
     // Steering
-    const maxSteerVal = 0.5;
+    const maxSteerVal = 0.2;
     const steerSpeed = 2.0 * deltaTime;
     
     let targetSteer = 0;
