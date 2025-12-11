@@ -27,7 +27,7 @@ export class Vehicle {
   createMesh() {
     const group = new THREE.Group();
     
-    // Car body
+    // Car body - offset down so it sits on wheels
     const bodyGeometry = new THREE.BoxGeometry(
       this.config.vehicle.length,
       this.config.vehicle.height,
@@ -43,6 +43,7 @@ export class Vehicle {
     
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.castShadow = true;
+    body.position.y = 0.3; // Offset down so car sits on wheels
     group.add(body);
     
     // Wheels (visual only)
@@ -60,10 +61,11 @@ export class Vehicle {
       roughness: 0.8
     });
     
-    // Place wheels roughly at the four corners, oriented to look like real car wheels
+    // Place wheels at the four corners, positioned to actually support the car
     const halfLength = this.config.vehicle.length / 2;
     const halfWidth = this.config.vehicle.width / 2;
-    const wheelY = -this.config.vehicle.height / 2 + wheelRadius * 0.6;
+    // Wheels positioned lower so car body sits on top of them
+    const wheelY = -this.config.vehicle.height / 2 - wheelRadius + 0.2;
 
     const positions = [
       // Front left

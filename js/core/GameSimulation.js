@@ -96,7 +96,8 @@ export class GameSimulation {
     const side = this.config.teams[team].spawnSide;
     const x = side * (this.config.arena.length / 3);
     const z = offset * 10;
-    return { x, y: 2, z };
+    // Spawn higher so car rests properly on wheels (wheel radius 0.5 + car height offset)
+    return { x, y: 2.2, z };
   }
   
   switchPlayerTeam(playerId, newTeam) {
