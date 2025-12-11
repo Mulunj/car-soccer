@@ -18,7 +18,7 @@ export class PhysicsSystem {
     });
 
     // Set solver iterations for better stability
-    this.world.solver.iterations = 10;
+    this.world.solver.iterations = 20;
 
     // Enable collision detection
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);

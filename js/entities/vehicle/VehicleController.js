@@ -104,39 +104,66 @@ export class VehicleController {
     const isFlipped = upVec.y < 0.3;
     const isStuck = vehicle && vehicle.numWheelsOnGround < 2 && Math.abs(body.velocity.y) < 0.1;
 
-    if (isFlipped || isStuck) {
-      if (commands.forward || commands.backward || commands.jump || commands.left || commands.right) {
-        const torqueStrength = 400 * deltaTime;
-        const torque = new CANNON.Vec3(0, 0, 0);
+    // Air control (when not on ground and not just stuck/flipped)
+    if (!onGround && !isFlipped && !isStuck) {
+      const airTurnSpeed = 1.5; // Target radians per second
+      const airPitchSpeed = 1.5;
+      
+      // Calculate target angular velocity
+      const targetAngVel = new CANNON.Vec3(0, 0, 0);
+      
+      // Yaw (turning)
+      if (commands.left) targetAngVel.y = airTurnSpeed;
+      if (commands.right) targetAngVel.y = -airTurnSpeed;
+      
+      // Pitch (tilting forward/back)
+      if (commands.forward) targetAngVel.x = -airPitchSpeed;
+      if (commands.backward) targetAngVel.x = airPitchSpeed;
 
-        if (commands.forward) torque.x += torqueStrength;
-        if (commands.backward) torque.x -= torqueStrength;
-        if (commands.left) torque.z += torqueStrength;
-        if (commands.right) torque.z -= torqueStrength;
-
-        if (commands.jump) {
-          body.velocity.y += 5 * deltaTime;
-          torque.z -= torqueStrength * 5;
-        }
-
-        body.quaternion.vmult(torque, torque);
+      // Roll (optional, mapped to same keys or modifiers? simple for now)
+      
+      // Apply torque to reach target angular velocity
+      // Proportional control
+      const kp = 200; // Torque multiplier
+      const currentAngVel = body.angularVelocity;
+      
+      if (targetAngVel.lengthSquared() > 0.01) {
+        // Transform target axis to world space? No, controls are usually local-ish or camera relative.
+        // For simplicity in air, Local controls are best.
+        
+        // Convert local target to world
+        const worldTarget = new CANNON.Vec3();
+        body.quaternion.vmult(targetAngVel, worldTarget);
+        
+        const diff = new CANNON.Vec3();
+        worldTarget.vsub(currentAngVel, diff);
+        
+        // Apply torque
+        const torque = diff.scale(kp * deltaTime);
         body.angularVelocity.vadd(torque, body.angularVelocity);
+      } else {
+        // Auto-stabilize / dampen rotation when no input
+        body.angularVelocity.scale(0.98, body.angularVelocity);
       }
     }
-
-    if (!onGround && !isFlipped) {
-      const rotSpeed = 1.0 * deltaTime;
+    
+    // Recovery flip (only when actually flipped on ground)
+    if (isFlipped && (commands.jump || commands.left || commands.right)) {
+      const flipForce = 15000 * deltaTime; // Impulse-like torque
       const torque = new CANNON.Vec3(0, 0, 0);
-      if (commands.forward) torque.z -= rotSpeed * 200;
-      if (commands.backward) torque.z += rotSpeed * 200;
-      if (commands.left) torque.y += rotSpeed * 200;
-      if (commands.right) torque.y -= rotSpeed * 200;
 
-      body.quaternion.vmult(torque, torque);
-      body.angularVelocity.vadd(torque, body.angularVelocity);
-      body.angularVelocity.scale(0.95, body.angularVelocity);
-    } else {
-      body.angularDamping = 0.5;
+      // Roll to flip over
+      torque.z = -flipForce; // Always try to roll sideways
+      if (commands.left) torque.z = flipForce;
+      
+      // Add a little upward pop
+      if (commands.jump && Math.random() < 0.1) {
+        body.velocity.y += 2;
+      }
+
+      const worldTorque = new CANNON.Vec3();
+      body.quaternion.vmult(torque, worldTorque);
+      body.angularVelocity.vadd(worldTorque.scale(0.01), body.angularVelocity); // Scale down for velocity addition
     }
 
     // Sync mesh after physics changes
