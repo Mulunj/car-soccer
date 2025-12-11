@@ -16,6 +16,7 @@ export class Arena {
     this.createFloor();
     this.createWalls();
     this.createGoals();
+    this.createCeiling();
   }
 
   createFloor() {
@@ -126,6 +127,46 @@ export class Arena {
 
     // Orange goal (right side)
     this.createGoal(length / 2 + goalDepth / 2, goalHeight / 2, 0, goalDepth, goalHeight, goalWidth, 0xff922b);
+  }
+
+  /**
+   * Ceiling to keep ball and vehicles inside arena
+   */
+  createCeiling() {
+    const width = this.config.arena.width;
+    const length = this.config.arena.length;
+    const ceilingHeight = this.config.arena.wallHeight + 2; // a bit above walls
+
+    // Visual mesh - thin box as ceiling
+    const geometry = new THREE.BoxGeometry(length + 2, 0.5, width + 2);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x121212,
+      roughness: 0.9,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.95
+    });
+    const ceiling = new THREE.Mesh(geometry, material);
+    ceiling.position.set(0, ceilingHeight, 0);
+    ceiling.receiveShadow = true;
+    this.mesh.add(ceiling);
+
+    // Physics body - static box to contain objects
+    const halfExtents = new CANNON.Vec3((length + 2) / 2, 0.25, (width + 2) / 2);
+    const shape = new CANNON.Box(halfExtents);
+    const body = new CANNON.Body({
+      mass: 0, // static
+      shape: shape,
+      position: new CANNON.Vec3(0, ceilingHeight, 0)
+    });
+
+    // Slight restitution to avoid harsh hits
+    body.material = new CANNON.Material({
+      friction: 0.1,
+      restitution: 0.2
+    });
+
+    this.physics.world.addBody(body);
   }
 
   createGoal(x, y, z, depth, height, width, color) {

@@ -4,7 +4,7 @@ export const GameConfig = {
     width: 100,
     length: 140,
     height: 20,
-    wallHeight: 12,
+    wallHeight: 36,
     goalWidth: 20,
     goalHeight: 8,
     goalDepth: 10
