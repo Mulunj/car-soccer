@@ -132,26 +132,52 @@ export class RenderSystem {
     const isMovingForward = forwardSpeed > 2; // small threshold
 
     // Update camera orbit offsets from right stick
-    const yawSpeed = 1.5;   // radians/sec
-    const pitchSpeed = 1.2; // radians/sec
+    const yawSpeed = 1.5;    // radians/sec
+    const pitchSpeed = 1.2;  // radians/sec
     const returnSpeed = 2.0; // lerp speed back to default
 
+    // Soft limits for pitch to add "resistance" near extremes
+    const maxPitch = this.config.camera.maxVerticalAngle;
+    const softPitchLimit = maxPitch * 0.9; // start resisting before the hard limit
+
     if (deltaTime > 0) {
-      // Apply stick input
       if (cameraInput.x !== 0 || cameraInput.y !== 0) {
         // Invert yaw direction (so left on stick rotates camera left)
         this.cameraYawOffset += cameraInput.x * yawSpeed * deltaTime;
-        // Use stick Y to control pitch (push up/down adjusts camera pitch)
-        this.cameraPitchOffset += cameraInput.y * pitchSpeed * deltaTime;
+
+        // Right stick Y controls pitch; pushing up (negative axis) should raise the camera
+        const desiredDeltaPitch = -cameraInput.y * pitchSpeed * deltaTime;
+        if (desiredDeltaPitch !== 0) {
+          const current = this.cameraPitchOffset;
+          const proposed = current + desiredDeltaPitch;
+          const absCurrent = Math.abs(current);
+          const absProposed = Math.abs(proposed);
+
+          // If we're pushing further toward an extreme beyond the soft limit, scale the delta
+          if (
+            absProposed > softPitchLimit &&
+            Math.sign(proposed) === Math.sign(current) // continuing in same direction
+          ) {
+            const overSoft = absProposed - softPitchLimit;
+            const softRange = maxPitch - softPitchLimit;
+
+            // Factor goes from 1 at the soft limit down to 0 at the hard limit
+            const factor = Math.max(0, 1 - overSoft / softRange);
+            this.cameraPitchOffset = current + desiredDeltaPitch * factor;
+          } else {
+            // Within soft range, apply full delta
+            this.cameraPitchOffset = proposed;
+          }
+        }
       } else if (isMovingForward) {
         // Auto-orbit back to default when moving forward and stick is neutral
-        this.cameraYawOffset += (0 - this.cameraYawOffset) * Math.min(1, returnSpeed * deltaTime);
-        this.cameraPitchOffset += (0 - this.cameraPitchOffset) * Math.min(1, returnSpeed * deltaTime);
+        const lerpFactor = Math.min(1, returnSpeed * deltaTime);
+        this.cameraYawOffset += (0 - this.cameraYawOffset) * lerpFactor;
+        this.cameraPitchOffset += (0 - this.cameraPitchOffset) * lerpFactor;
       }
     }
 
-    // Clamp vertical rotation
-    const maxPitch = this.config.camera.maxVerticalAngle;
+    // Hard clamp vertical rotation to keep camera from going underground or perfectly top-down
     this.cameraPitchOffset = Math.max(-maxPitch, Math.min(maxPitch, this.cameraPitchOffset));
 
     // Base offset in vehicle local space (behind car along -X)
