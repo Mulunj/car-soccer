@@ -1,0 +1,262 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Space Mono', monospace;
+  background: #000;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#game-container {
+  width: 100vw;
+  height: 100vh;
+}
+
+#loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: opacity 0.5s;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-content {
+  text-align: center;
+  color: #fff;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 20px;
+  color: #fff;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.score-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.team-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.team-name {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.8;
+}
+
+.score {
+  font-size: 48px;
+  font-weight: bold;
+}
+
+.blue-team .score {
+  color: #4dabf7;
+}
+
+.orange-team .score {
+  color: #ff922b;
+}
+
+.timer {
+  font-size: 24px;
+  letter-spacing: 2px;
+}
+
+.boost-meter {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.boost-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd43b, #ff922b);
+  width: 100%;
+  transition: width 0.1s;
+}
+
+#menu, #controls-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.menu-content {
+  background: #1a1a1a;
+  padding: 40px;
+  border-radius: 8px;
+  min-width: 300px;
+  max-width: 90vw;
+}
+
+.menu-content h2 {
+  color: #fff;
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 32px;
+  letter-spacing: 2px;
+}
+
+.menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.menu-btn {
+  padding: 15px 30px;
+  font-family: 'Space Mono', monospace;
+  font-size: 16px;
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+  letter-spacing: 1px;
+  min-height: 44px;
+}
+
+.menu-btn:hover {
+  background: #e0e0e0;
+}
+
+.menu-btn:active {
+  transform: scale(0.98);
+}
+
+.controls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.control-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #2a2a2a;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.control-label {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.control-key {
+  padding: 8px 16px;
+  background: #fff;
+  color: #000;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 44px;
+  text-align: center;
+}
+
+.control-key:hover {
+  background: #e0e0e0;
+}
+
+.control-key.editing {
+  background: #ff922b;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@media (max-width: 768px) {
+  .score-container {
+    padding: 0 10px;
+  }
+  
+  .score {
+    font-size: 36px;
+  }
+  
+  .timer {
+    font-size: 18px;
+  }
+  
+  .menu-content {
+    padding: 30px 20px;
+  }
+}
+

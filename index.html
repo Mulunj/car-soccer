@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Car Soccer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading...</div>
+    </div>
+  </div>
+  
+  <div id="game-container"></div>
+  
+  <div id="hud" class="hidden">
+    <div class="score-container">
+      <div class="team-score blue-team">
+        <span class="team-name">Blue</span>
+        <span class="score">0</span>
+      </div>
+      <div class="timer">5:00</div>
+      <div class="team-score orange-team">
+        <span class="team-name">Orange</span>
+        <span class="score">0</span>
+      </div>
+    </div>
+    <div class="boost-meter">
+      <div class="boost-fill"></div>
+    </div>
+  </div>
+  
+  <div id="menu" class="hidden">
+    <div class="menu-content">
+      <h2>Paused</h2>
+      <div class="menu-section">
+        <button id="resume-btn" class="menu-btn">Resume</button>
+        <button id="switch-team-btn" class="menu-btn">Switch Team</button>
+        <button id="controls-btn" class="menu-btn">Controls</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="controls-menu" class="hidden">
+    <div class="menu-content">
+      <h2>Controls</h2>
+      <div class="controls-list" id="controls-list"></div>
+      <button id="controls-back-btn" class="menu-btn">Back</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.159.0",
+        "three/addons/": "https://esm.sh/three@0.159.0/examples/jsm/",
+        "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+        "nipplejs": "https://esm.sh/nipplejs@0.10.1"
+      }
+    }
+  </script>
+  <script type="module" src="js/main.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
+
+
+## Future Multiplayer
+
+The architecture supports multiplayer via WebsimSocket:
+- NetworkInterface abstraction layer ready
+- GameState fully serializable
+- Command-based input system
+- Clean server authority path
+
+See ARCHITECTURE.md for detailed multiplayer integration plan.
+
+## Development
+
+Built with:
+- Three.js (3D rendering)
+- Cannon.js (physics simulation)
+- nipple.js (mobile touch controls)
+- ES6 modules (no bundler required)
+
+## Browser Compatibility
+
+Requires a modern browser with:
+- ES6 module support
+- WebGL
+- Gamepad API (optional, for controller support)
+
