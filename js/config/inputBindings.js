@@ -2,6 +2,26 @@ export class InputBindings {
   constructor() {
     // Load saved bindings or use defaults
     this.bindings = this.loadBindings();
+
+    // Gamepad button mapping
+    this.gamepadButtonMap = {
+      'A': 0,
+      'B': 1,
+      'X': 2,
+      'Y': 3,
+      'LB': 4,
+      'RB': 5,
+      'LT': 6,
+      'RT': 7,
+      'Back': 8,
+      'Start': 9,
+      'LStick': 10,
+      'RStick': 11,
+      'DPadUp': 12,
+      'DPadDown': 13,
+      'DPadLeft': 14,
+      'DPadRight': 15
+    };
   }
 
   getDefaultBindings() {
@@ -58,6 +78,7 @@ export class InputBindings {
 
   getKeyName(code) {
     const keyNames = {
+      // Keyboard
       'KeyW': 'W',
       'KeyA': 'A',
       'KeyS': 'S',
@@ -65,8 +86,40 @@ export class InputBindings {
       'Space': 'Space',
       'ShiftLeft': 'Shift',
       'ShiftRight': 'Shift',
-      'Escape': 'ESC'
+      'Escape': 'ESC',
+      // Gamepad
+      'A': 'A',
+      'B': 'B',
+      'X': 'X',
+      'Y': 'Y',
+      'LB': 'LB',
+      'RB': 'RB',
+      'LT': 'LT',
+      'RT': 'RT',
+      'Back': 'Back',
+      'Start': 'Start',
+      'LStick': 'L-Stick',
+      'RStick': 'R-Stick',
+      'DPadUp': 'D-Pad Up',
+      'DPadDown': 'D-Pad Down',
+      'DPadLeft': 'D-Pad Left',
+      'DPadRight': 'D-Pad Right'
     };
     return keyNames[code] || code;
+  }
+
+  getGamepadButtonIndex(name) {
+    if (!name) return null;
+    if (this.gamepadButtonMap.hasOwnProperty(name)) {
+      return this.gamepadButtonMap[name];
+    }
+    return null;
+  }
+
+  getGamepadButtonName(index) {
+    for (const [name, idx] of Object.entries(this.gamepadButtonMap)) {
+      if (idx === index) return name;
+    }
+    return null;
   }
 }

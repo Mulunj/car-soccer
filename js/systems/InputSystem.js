@@ -16,6 +16,9 @@ export class InputSystem {
     this.listeners = new Map();
     
     this.isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    // Track gamepad button state for edge detection
+    this.prevGamepadButtons = [];
   }
   
   init() {
@@ -46,10 +49,12 @@ export class InputSystem {
     window.addEventListener('gamepadconnected', (e) => {
       console.log('Gamepad connected:', e.gamepad);
       this.gamepad = e.gamepad;
+      this.prevGamepadButtons = new Array(e.gamepad.buttons.length).fill(false);
     });
     
     window.addEventListener('gamepaddisconnected', () => {
       this.gamepad = null;
+      this.prevGamepadButtons = [];
     });
   }
   
@@ -191,23 +196,34 @@ export class InputSystem {
     if (this.gamepad) {
       const gp = navigator.getGamepads()[this.gamepad.index];
       if (gp) {
-        // Triggers (RT/LT for forward/backward)
-        if (gp.buttons[7]?.pressed) commands.forward = true;
-        if (gp.buttons[6]?.pressed) commands.backward = true;
+        const getIdx = (action) => this.bindings.getGamepadButtonIndex(
+          this.bindings.getBinding('gamepad', action)
+        );
+
+        const forwardIdx = getIdx('forward');
+        const backwardIdx = getIdx('backward');
+        const jumpIdx = getIdx('jump');
+        const boostIdx = getIdx('boost');
+
+        if (forwardIdx !== null && gp.buttons[forwardIdx]?.pressed) {
+          commands.forward = true;
+        }
+        if (backwardIdx !== null && gp.buttons[backwardIdx]?.pressed) {
+          commands.backward = true;
+        }
         
         // Face buttons
-        if (gp.buttons[0]?.pressed) commands.jump = true;
-        if (gp.buttons[1]?.pressed) commands.boost = true;
+        if (jumpIdx !== null && gp.buttons[jumpIdx]?.pressed) {
+          commands.jump = true;
+        }
+        if (boostIdx !== null && gp.buttons[boostIdx]?.pressed) {
+          commands.boost = true;
+        }
         
         // Analog stick for turning
         const leftStickX = gp.axes[0];
         if (leftStickX < -0.3) commands.left = true;
         if (leftStickX > 0.3) commands.right = true;
-        
-        // Start button for menu
-        if (gp.buttons[9]?.pressed) {
-          this.trigger('menu');
-        }
       }
     }
     
@@ -224,6 +240,107 @@ export class InputSystem {
     return commands;
   }
   
+  /**
+   * Per-frame gamepad polling for menu controls and edge-triggered buttons
+   * Should be called every frame regardless of pause state.
+   */
+  updateGamepad() {
+    if (!this.gamepad) return;
+    const gp = navigator.getGamepads()[this.gamepad.index];
+    if (!gp) return;
+
+    // Ensure prevGamepadButtons has correct length
+    if (this.prevGamepadButtons.length !== gp.buttons.length) {
+      this.prevGamepadButtons = new Array(gp.buttons.length).fill(false);
+    }
+
+    const isPressed = (name) => {
+      const idx = this.bindings.getGamepadButtonIndex(name);
+      return idx !== null && gp.buttons[idx]?.pressed;
+    };
+
+    // Menu toggle (Start or bound menu button)
+    const menuName = this.bindings.getBinding('gamepad', 'menu');
+    const menuIdx = this.bindings.getGamepadButtonIndex(menuName);
+    if (menuIdx !== null) {
+      const pressed = gp.buttons[menuIdx]?.pressed;
+      const prev = this.prevGamepadButtons[menuIdx] || false;
+      if (pressed && !prev) {
+        this.trigger('menu');
+      }
+      this.prevGamepadButtons[menuIdx] = !!pressed;
+    }
+
+    // D-pad up/down for menu navigation
+    const dpadUpIdx = this.bindings.getGamepadButtonIndex('DPadUp');
+    const dpadDownIdx = this.bindings.getGamepadButtonIndex('DPadDown');
+
+    if (dpadUpIdx !== null) {
+      const pressed = gp.buttons[dpadUpIdx]?.pressed;
+      const prev = this.prevGamepadButtons[dpadUpIdx] || false;
+      if (pressed && !prev) {
+        this.trigger('menuNavigate', -1);
+      }
+      this.prevGamepadButtons[dpadUpIdx] = !!pressed;
+    }
+
+    if (dpadDownIdx !== null) {
+      const pressed = gp.buttons[dpadDownIdx]?.pressed;
+      const prev = this.prevGamepadButtons[dpadDownIdx] || false;
+      if (pressed && !prev) {
+        this.trigger('menuNavigate', 1);
+      }
+      this.prevGamepadButtons[dpadDownIdx] = !!pressed;
+    }
+
+    // Left stick up/down as fallback for menu navigation
+    const axisY = gp.axes[1];
+    if (axisY !== undefined) {
+      const threshold = 0.5;
+      const upIdx = 'axisYUp';
+      const downIdx = 'axisYDown';
+      const upPrev = this.prevGamepadButtons[upIdx] || false;
+      const downPrev = this.prevGamepadButtons[downIdx] || false;
+
+      const upNow = axisY < -threshold;
+      const downNow = axisY > threshold;
+
+      if (upNow && !upPrev) {
+        this.trigger('menuNavigate', -1);
+      }
+      if (downNow && !downPrev) {
+        this.trigger('menuNavigate', 1);
+      }
+
+      this.prevGamepadButtons[upIdx] = upNow;
+      this.prevGamepadButtons[downIdx] = downNow;
+    }
+
+    // Confirm (A)
+    const confirmName = 'A';
+    const confirmIdx = this.bindings.getGamepadButtonIndex(confirmName);
+    if (confirmIdx !== null) {
+      const pressed = gp.buttons[confirmIdx]?.pressed;
+      const prev = this.prevGamepadButtons[confirmIdx] || false;
+      if (pressed && !prev) {
+        this.trigger('menuConfirm');
+      }
+      this.prevGamepadButtons[confirmIdx] = !!pressed;
+    }
+
+    // Back (B)
+    const backName = 'B';
+    const backIdx = this.bindings.getGamepadButtonIndex(backName);
+    if (backIdx !== null) {
+      const pressed = gp.buttons[backIdx]?.pressed;
+      const prev = this.prevGamepadButtons[backIdx] || false;
+      if (pressed && !prev) {
+        this.trigger('menuBack');
+      }
+      this.prevGamepadButtons[backIdx] = !!pressed;
+    }
+  }
+  
   on(event, callback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
@@ -231,10 +348,10 @@ export class InputSystem {
     this.listeners.get(event).push(callback);
   }
   
-  trigger(event) {
+  trigger(event, data) {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
-      callbacks.forEach(cb => cb());
+      callbacks.forEach(cb => cb(data));
     }
   }
 }

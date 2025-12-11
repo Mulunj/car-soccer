@@ -299,6 +299,11 @@ body {
   50% { opacity: 0.5; }
 }
 
+.menu-btn.focused {
+  outline: 2px solid #ff922b;
+  outline-offset: 2px;
+}
+
 @media (max-width: 768px) {
   .score-container {
     padding: 0 10px;

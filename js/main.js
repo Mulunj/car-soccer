@@ -84,6 +84,25 @@ class Game {
     // Menu toggle
     this.inputSystem.on('menu', () => this.togglePause());
 
+    // Controller menu navigation
+    this.inputSystem.on('menuNavigate', (dir) => {
+      if (this.isMenuOpen) {
+        this.menu.handleNavigate(dir);
+      }
+    });
+
+    this.inputSystem.on('menuConfirm', () => {
+      if (this.isMenuOpen) {
+        this.menu.handleConfirm();
+      }
+    });
+
+    this.inputSystem.on('menuBack', () => {
+      if (this.isMenuOpen) {
+        this.menu.handleBack();
+      }
+    });
+
     // Window resize
     window.addEventListener('resize', () => {
       this.renderSystem.handleResize();
@@ -124,6 +143,9 @@ class Game {
     const currentTime = performance.now();
     const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
     this.lastTime = currentTime;
+
+    // Always update gamepad for menu controls
+    this.inputSystem.updateGamepad();
 
     // Don't update simulation when paused
     if (!this.isMenuOpen) {
