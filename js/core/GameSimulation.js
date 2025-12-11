@@ -82,6 +82,16 @@ export class GameSimulation {
     }
   }
   
+  /**
+   * Hard reset of the entire match
+   */
+  resetMatch() {
+    this.state.reset();
+    this.resetPositions();
+    this.state.matchStarted = true;
+    this.state.addEvent('matchStart', {});
+  }
+  
   getSpawnPosition(team, offset = 0) {
     const side = this.config.teams[team].spawnSide;
     const x = side * (this.config.arena.length / 3);
@@ -120,6 +130,27 @@ export class GameSimulation {
       playerVehicle.applyCommands(commands, deltaTime);
     }
     
+    // Check for vehicle events (audio triggers)
+    for (const [id, vehicle] of Object.entries(this.vehicles)) {
+      if (vehicle.lastCollisionForce) {
+        // Only trigger for significant impacts, avoid spam
+        if (vehicle.lastCollisionForce > 5) {
+          // Attenuate volume based on distance to player (if we had spatial audio)
+          // For now, just global event
+          this.state.addEvent('collision', { 
+            force: vehicle.lastCollisionForce, 
+            position: vehicle.body.position 
+          });
+        }
+        vehicle.lastCollisionForce = 0;
+      }
+      
+      if (vehicle.justJumped) {
+        this.state.addEvent('jump', { id });
+        vehicle.justJumped = false;
+      }
+    }
+    
     // Update AI vehicles
     const aiCommands = this.ai.update(this.state, deltaTime);
     for (const [vehicleId, commands] of Object.entries(aiCommands)) {
@@ -151,6 +182,7 @@ export class GameSimulation {
   checkGoals() {
     // Don't check during reset
     if (this.resetTimer) return;
+    if (this.state.matchEnded) return;
     
     const ballPos = this.state.ball.position;
     const goalY = this.config.arena.goalHeight / 2;
@@ -171,6 +203,7 @@ export class GameSimulation {
   
   handleGoal(team) {
     this.state.scoreGoal(team, null); // We'd track who scored in multiplayer
+    this.state.addEvent('goal', { team });
     
     // Reset after delay
     this.resetTimer = setTimeout(() => {

@@ -33,6 +33,10 @@ export class GameState {
 
     // Last goal info
     this.lastGoal = null;
+    
+    // Event queue for one-time events (collisions, goals, etc)
+    // format: { type: string, data: any }
+    this.events = [];
   }
 
   /**
@@ -73,6 +77,20 @@ export class GameState {
     this.ball.position = { ...position };
     this.ball.velocity = { ...velocity };
     this.ball.rotation = { ...rotation };
+  }
+
+  /**
+   * Add a transient event to the state
+   */
+  addEvent(type, data) {
+    this.events.push({ type, data });
+  }
+
+  /**
+   * Clear events after they've been processed
+   */
+  clearEvents() {
+    this.events = [];
   }
 
   /**

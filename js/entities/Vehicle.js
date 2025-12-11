@@ -16,6 +16,7 @@ export class Vehicle {
     this.body = null;
     this.boost = 100;
     this.canJump = false;
+    this.isBoosting = false; // Track boosting state
   }
   
   init(position) {
@@ -106,6 +107,18 @@ export class Vehicle {
       if (normal.y > 0.5) {
         this.canJump = true;
       }
+      
+      // Collision sound logic
+      // Calculate relative velocity along normal
+      const relativeVelocity = e.contact.getImpactVelocityAlongNormal();
+      
+      if (Math.abs(relativeVelocity) > 5) {
+        // Trigger collision event
+        // We can't access GameState here directly, so we store it on the instance
+        // and GameSimulation picks it up, or we pass a callback.
+        // For simplicity, let's mark it as a property the simulation checks.
+        this.lastCollisionForce = Math.abs(relativeVelocity);
+      }
     });
     
     this.updateMesh();
@@ -150,15 +163,18 @@ export class Vehicle {
     if (commands.jump && this.canJump) {
       this.body.velocity.y = this.config.vehicle.jumpForce;
       this.canJump = false;
+      this.justJumped = true; // Flag for audio
     }
     
     // Boost
+    this.isBoosting = false;
     if (commands.boost && this.boost > 0) {
       this.body.applyForce(
         forward.scale(this.config.vehicle.boostForce * this.config.vehicle.mass),
         this.body.position
       );
       this.boost = Math.max(0, this.boost - this.config.vehicle.boostDrainRate * deltaTime);
+      this.isBoosting = true;
     } else {
       // Regenerate boost
       this.boost = Math.min(100, this.boost + this.config.vehicle.boostRegenRate * deltaTime);
@@ -214,7 +230,8 @@ export class Vehicle {
         z: this.body.quaternion.z
       },
       boost: this.boost,
-      onGround: this.canJump
+      onGround: this.canJump,
+      isBoosting: this.isBoosting
     };
   }
 }
