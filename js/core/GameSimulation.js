@@ -84,10 +84,17 @@ export class GameSimulation {
   
   /**
    * Hard reset of the entire match
+   *
+   * Ensure we reposition physics-backed vehicles before clearing the serializable
+   * GameState so we can look up team/spawn info reliably. Also make resetPositions
+   * resilient if the GameState is missing entries.
    */
   resetMatch() {
-    this.state.reset();
+    // First reposition physics objects (uses this.vehicles which is authoritative for physics)
     this.resetPositions();
+
+    // Now reset the serializable state
+    this.state.reset();
     this.state.matchStarted = true;
     this.state.addEvent('matchStart', {});
   }
@@ -214,16 +221,23 @@ export class GameSimulation {
   
   resetPositions() {
     // Reset ball
-    this.ball.reset();
+    if (this.ball) this.ball.reset();
     
-    // Reset vehicles
+    // Reset vehicles - be defensive: the serializable state may not contain entries
+    // (e.g. during a full state.reset()). Use vehicle.team as fallback.
     for (const [id, vehicle] of Object.entries(this.vehicles)) {
-      const team = this.state.vehicles[id].team;
+      const stateVehicle = this.state.vehicles && this.state.vehicles[id];
+      const team = stateVehicle?.team || vehicle.team || 'blue';
       const isPlayer = id === 'player';
-      const offset = isPlayer ? 0 : parseInt(id.split('-').pop()) + 1;
+      const offset = isPlayer ? 0 : (() => {
+        const parts = id.split('-');
+        const last = parts[parts.length - 1];
+        const n = parseInt(last);
+        return Number.isFinite(n) ? n + 1 : 1;
+      })();
       const spawnPos = this.getSpawnPosition(team, offset);
-      vehicle.setPosition(spawnPos);
-      vehicle.setVelocity({ x: 0, y: 0, z: 0 });
+      if (vehicle.setPosition) vehicle.setPosition(spawnPos);
+      if (vehicle.setVelocity) vehicle.setVelocity({ x: 0, y: 0, z: 0 });
     }
   }
   
