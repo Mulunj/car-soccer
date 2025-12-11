@@ -166,6 +166,23 @@ export class VehicleController {
       body.angularVelocity.vadd(worldTorque.scale(0.01), body.angularVelocity); // Scale down for velocity addition
     }
 
+    // Hard ground-clearance clamp to keep wheels from going underground when on the floor
+    if (vehicle && vehicle.numWheelsOnGround > 0) {
+      const minClear = this.config.vehicle.minGroundClearance || 0.3;
+      const halfHeight = this.config.vehicle.height / 2;
+      const chassisBottom = body.position.y - halfHeight;
+
+      if (chassisBottom < -minClear) {
+        const correction = -minClear - chassisBottom;
+        body.position.y += correction;
+
+        // Stop further sinking / nose-diving
+        if (body.velocity.y < 0) body.velocity.y = 0;
+        body.angularVelocity.x *= 0.5;
+        body.angularVelocity.z *= 0.5;
+      }
+    }
+
     // Sync mesh after physics changes
     this.updateMesh();
   }

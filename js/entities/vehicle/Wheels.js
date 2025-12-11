@@ -22,7 +22,7 @@ export class Wheels {
     });
 
     const optionsTemplate = {
-      radius: 0.5,
+      radius: 0.6, // Slightly larger visual/physics wheel radius to reduce clipping through floor
       directionLocal: new CANNON.Vec3(0, -1, 0),
       suspensionStiffness: this.config.vehicle.suspensionStiffness,
       suspensionRestLength: this.config.vehicle.suspensionRestLength,
@@ -33,7 +33,7 @@ export class Wheels {
       rollInfluence: this.config.vehicle.rollInfluence,
       axleLocal: new CANNON.Vec3(0, 0, 1),
       chassisConnectionPointLocal: new CANNON.Vec3(1, 1, 0),
-      maxSuspensionTravel: 0.3,
+      maxSuspensionTravel: this.config.vehicle.maxSuspensionTravel || 0.5,
       customSlidingRotationalSpeed: -20,
       useCustomSlidingRotationalSpeed: true
     };
@@ -41,7 +41,11 @@ export class Wheels {
     const halfLength = this.config.vehicle.length / 2;
     const axleWidth = (this.config.vehicle.axleWidth || 3.0) / 2;
     const comOffset = 0.5;
-    const heightOffset = comOffset - (this.config.vehicle.height / 2) + (this.config.vehicle.suspensionPos || 0);
+    const heightOffset =
+      comOffset -
+      (this.config.vehicle.height / 2) +
+      (this.config.vehicle.suspensionPos || 0) +
+      0.1; // lift attachment points slightly to keep wheels above ground at rest
 
     // Front Left
     optionsTemplate.chassisConnectionPointLocal.set(halfLength * 0.7, heightOffset, -axleWidth);

@@ -14,7 +14,7 @@ export class PhysicsSystem {
   init() {
     // Create physics world
     this.world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -30, 0)
+      gravity: new CANNON.Vec3(0, -25, 0) // Slightly reduced gravity to ease suspension compression
     });
 
     // Set solver iterations for better stability
