@@ -88,7 +88,17 @@ export class RenderSystem {
     if (objects.arena) this.scene.add(objects.arena);
     if (objects.ball) this.scene.add(objects.ball);
     if (objects.vehicles) {
-      Object.values(objects.vehicles).forEach(v => this.scene.add(v));
+      // Vehicles may be VehicleMesh wrappers; ensure we add a THREE.Object3D instance.
+      Object.values(objects.vehicles).forEach(v => {
+        if (v && v.group && typeof v.group.isObject3D !== 'undefined') {
+          this.scene.add(v.group);
+        } else if (v && v.isObject3D) {
+          this.scene.add(v);
+        } else {
+          // Fallback: try to add as-is (will throw if incorrect)
+          this.scene.add(v);
+        }
+      });
     }
   }
   
