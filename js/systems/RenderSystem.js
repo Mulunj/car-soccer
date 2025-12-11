@@ -139,8 +139,10 @@ export class RenderSystem {
     if (deltaTime > 0) {
       // Apply stick input
       if (cameraInput.x !== 0 || cameraInput.y !== 0) {
-        this.cameraYawOffset += -cameraInput.x * yawSpeed * deltaTime;
-        this.cameraPitchOffset += -cameraInput.y * pitchSpeed * deltaTime;
+        // Invert yaw direction (so left on stick rotates camera left)
+        this.cameraYawOffset += cameraInput.x * yawSpeed * deltaTime;
+        // Use stick Y to control pitch (push up/down adjusts camera pitch)
+        this.cameraPitchOffset += cameraInput.y * pitchSpeed * deltaTime;
       } else if (isMovingForward) {
         // Auto-orbit back to default when moving forward and stick is neutral
         this.cameraYawOffset += (0 - this.cameraYawOffset) * Math.min(1, returnSpeed * deltaTime);
