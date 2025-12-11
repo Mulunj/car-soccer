@@ -214,7 +214,9 @@ export class Vehicle {
       const forward = new CANNON.Vec3(1, 0, 0);
       this.chassisBody.quaternion.vmult(forward, forward);
       
-      const boostForce = this.config.vehicle.boostForce * this.config.vehicle.mass;
+      // Apply a force for boost that is defined in config.boostForce (don't multiply by mass again)
+      // This prevents the boost from scaling unexpectedly when mass is increased.
+      const boostForce = this.config.vehicle.boostForce;
       this.chassisBody.applyForce(forward.scale(boostForce), this.chassisBody.position);
       
       this.boost = Math.max(0, this.boost - this.config.vehicle.boostDrainRate * deltaTime);
@@ -225,9 +227,20 @@ export class Vehicle {
     // Jump
     const onGround = this.vehicle.numWheelsOnGround > 0;
     if (commands.jump && onGround) {
+      // Use an impulse so heavier vehicles naturally receive smaller velocity change
       const up = new CANNON.Vec3(0, 1, 0);
       this.chassisBody.quaternion.vmult(up, up);
-      this.chassisBody.velocity.vadd(up.scale(this.config.vehicle.jumpForce), this.chassisBody.velocity);
+
+      // Apply impulse (impulse magnitude is independent of current mass; deltaV = impulse / mass)
+      // This makes heavier cars jump less for the same configured jumpForce value.
+      try {
+        this.chassisBody.applyImpulse(up.scale(this.config.vehicle.jumpForce), this.chassisBody.position);
+      } catch (e) {
+        // Fallback if applyImpulse signature differs: directly adjust velocity with a mass-aware delta
+        const deltaV = up.scale(this.config.vehicle.jumpForce / (this.chassisBody.mass || 1));
+        this.chassisBody.velocity.vadd(deltaV, this.chassisBody.velocity);
+      }
+
       this.justJumped = true;
     }
     

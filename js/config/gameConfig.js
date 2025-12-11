@@ -12,7 +12,7 @@ export const GameConfig = {
 
   // Vehicle physics
   vehicle: {
-    mass: 180,
+    mass: 1200, // increased mass to make cars heavier and less prone to high jumps / flips
     width: 3.5,
     length: 5,
     height: 1.5,
