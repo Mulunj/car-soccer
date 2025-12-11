@@ -29,8 +29,8 @@ export class PhysicsSystem {
       defaultMaterial,
       defaultMaterial,
       {
-        friction: 0.3,
-        restitution: 0.3
+        friction: 0.1,
+        restitution: 0.2
       }
     );
     this.world.addContactMaterial(defaultContactMaterial);

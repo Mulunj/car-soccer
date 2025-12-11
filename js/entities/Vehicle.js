@@ -60,17 +60,27 @@ export class Vehicle {
       roughness: 0.8
     });
     
+    // Place wheels roughly at the four corners, oriented to look like real car wheels
+    const halfLength = this.config.vehicle.length / 2;
+    const halfWidth = this.config.vehicle.width / 2;
+    const wheelY = -this.config.vehicle.height / 2 + wheelRadius * 0.6;
+
     const positions = [
-      [-1.5, -0.5, 1.2],
-      [-1.5, -0.5, -1.2],
-      [1.5, -0.5, 1.2],
-      [1.5, -0.5, -1.2]
+      // Front left
+      { x: halfLength * 0.7, y: wheelY, z: halfWidth * 0.9 },
+      // Front right
+      { x: halfLength * 0.7, y: wheelY, z: -halfWidth * 0.9 },
+      // Rear left
+      { x: -halfLength * 0.7, y: wheelY, z: halfWidth * 0.9 },
+      // Rear right
+      { x: -halfLength * 0.7, y: wheelY, z: -halfWidth * 0.9 }
     ];
     
     positions.forEach(pos => {
       const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+      // Rotate so the cylinder axis aligns with the car's width (z), like a real wheel
       wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(...pos);
+      wheel.position.set(pos.x, pos.y, pos.z);
       wheel.castShadow = true;
       group.add(wheel);
     });
@@ -87,8 +97,8 @@ export class Vehicle {
       mass: this.config.vehicle.mass,
       shape: shape,
       position: new CANNON.Vec3(position.x, position.y, position.z),
-      linearDamping: 0.3,
-      angularDamping: 0.3
+      linearDamping: 0.1,
+      angularDamping: 0.2
     });
     
     // Prevent car from tipping too easily
