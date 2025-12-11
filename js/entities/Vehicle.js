@@ -79,7 +79,8 @@ export class Vehicle {
     positions.forEach(pos => {
       const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
       // Rotate so the cylinder axis aligns with the car's width (z), like a real wheel
-      wheel.rotation.z = Math.PI / 2;
+      // Align wheel cylinders so they sit correctly beside the car (rotate 90deg around X)
+      wheel.rotation.x = Math.PI / 2;
       wheel.position.set(pos.x, pos.y, pos.z);
       wheel.castShadow = true;
       group.add(wheel);
