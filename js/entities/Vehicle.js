@@ -3,7 +3,7 @@ import * as CANNON from 'cannon-es';
 
 /**
  * Vehicle entity
- * Player and AI controlled car
+ * Player and AI controlled car using RaycastVehicle
  */
 export class Vehicle {
   constructor(id, team, config, physics) {
@@ -13,21 +13,102 @@ export class Vehicle {
     this.physics = physics;
     
     this.mesh = null;
-    this.body = null;
+    this.chassisBody = null;
+    this.vehicle = null;
+    this.wheelMeshes = [];
+    
     this.boost = 100;
-    this.canJump = false;
-    this.isBoosting = false; // Track boosting state
+    this.isBoosting = false;
+    this.steeringValue = 0;
   }
   
   init(position) {
+    this.createPhysics(position);
     this.createMesh();
-    this.createPhysicsBody(position);
+  }
+  
+  createPhysics(position) {
+    // Chassis
+    const shape = new CANNON.Box(new CANNON.Vec3(
+      this.config.vehicle.length / 2,
+      this.config.vehicle.height / 2,
+      this.config.vehicle.width / 2
+    ));
+    
+    this.chassisBody = new CANNON.Body({
+      mass: this.config.vehicle.mass,
+      shape: shape,
+      position: new CANNON.Vec3(position.x, position.y + 2, position.z), // Spawn slightly higher
+      angularDamping: 0.5
+    });
+    
+    this.physics.addBody(this.id, this.chassisBody);
+    
+    // Raycast Vehicle
+    this.vehicle = new CANNON.RaycastVehicle({
+      chassisBody: this.chassisBody,
+      indexRightAxis: 2, // Z is right/left (width)
+      indexUpAxis: 1,    // Y is up
+      indexForwardAxis: 0 // X is forward
+    });
+    
+    const options = {
+      radius: 0.5,
+      directionLocal: new CANNON.Vec3(0, -1, 0),
+      suspensionStiffness: this.config.vehicle.suspensionStiffness || 30,
+      suspensionRestLength: this.config.vehicle.suspensionRestLength || 0.6,
+      frictionSlip: this.config.vehicle.frictionSlip || 1.4,
+      dampingRelaxation: this.config.vehicle.dampingRelaxation || 2.3,
+      dampingCompression: this.config.vehicle.dampingCompression || 4.4,
+      maxSuspensionForce: this.config.vehicle.maxSuspensionForce || 100000,
+      rollInfluence: this.config.vehicle.rollInfluence || 0.01,
+      axleLocal: new CANNON.Vec3(0, 0, 1),
+      chassisConnectionPointLocal: new CANNON.Vec3(1, 1, 0),
+      maxSuspensionTravel: 0.3,
+      customSlidingRotationalSpeed: -30,
+      useCustomSlidingRotationalSpeed: true
+    };
+    
+    const halfLength = this.config.vehicle.length / 2;
+    const axleWidth = (this.config.vehicle.axleWidth || this.config.vehicle.width * 0.7) / 2;
+    const heightOffset = -this.config.vehicle.height / 2 + (this.config.vehicle.suspensionPos || 0.2);
+
+    // Front Left (0)
+    options.chassisConnectionPointLocal.set(halfLength * 0.7, heightOffset, axleWidth);
+    this.vehicle.addWheel(options);
+
+    // Front Right (1)
+    options.chassisConnectionPointLocal.set(halfLength * 0.7, heightOffset, -axleWidth);
+    this.vehicle.addWheel(options);
+
+    // Rear Left (2)
+    options.chassisConnectionPointLocal.set(-halfLength * 0.7, heightOffset, axleWidth);
+    this.vehicle.addWheel(options);
+
+    // Rear Right (3)
+    options.chassisConnectionPointLocal.set(-halfLength * 0.7, heightOffset, -axleWidth);
+    this.vehicle.addWheel(options);
+
+    this.vehicle.addToWorld(this.physics.world);
+    
+    // Wheel collision listener (for audio events maybe)
+    this.vehicle.wheelInfos.forEach((wheel) => {
+        // can attach listeners if needed
+    });
+    
+    // Add collision listener to chassis for impacts
+    this.chassisBody.addEventListener('collide', (e) => {
+      const relativeVelocity = e.contact.getImpactVelocityAlongNormal();
+      if (Math.abs(relativeVelocity) > 5) {
+        this.lastCollisionForce = Math.abs(relativeVelocity);
+      }
+    });
   }
   
   createMesh() {
-    const group = new THREE.Group();
+    this.mesh = new THREE.Group();
     
-    // Car body - offset down so it sits on wheels
+    // Chassis Mesh
     const bodyGeometry = new THREE.BoxGeometry(
       this.config.vehicle.length,
       this.config.vehicle.height,
@@ -41,210 +122,190 @@ export class Vehicle {
       metalness: 0.6
     });
     
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.castShadow = true;
-    body.position.y = 0.3; // Offset down so car sits on wheels
-    group.add(body);
+    this.chassisMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    this.chassisMesh.castShadow = true;
+    this.mesh.add(this.chassisMesh);
     
-    // Wheels (visual only)
-    this.addWheels(group);
-    
-    this.mesh = group;
-  }
-  
-  addWheels(group) {
-    const wheelRadius = 0.5;
-    const wheelWidth = 0.4;
-    const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 16);
+    // Wheel Meshes
+    const wheelGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 24);
     const wheelMaterial = new THREE.MeshStandardMaterial({
       color: 0x1a1a1a,
       roughness: 0.8
     });
     
-    // Place wheels at the four corners, positioned to actually support the car
-    const halfLength = this.config.vehicle.length / 2;
-    const halfWidth = this.config.vehicle.width / 2;
-    // Wheels positioned lower so car body sits on top of them
-    const wheelY = -this.config.vehicle.height / 2 - wheelRadius + 0.2;
+    // Rotate cylinder geometry so it rolls along Z axis when rotated by physics
+    wheelGeometry.rotateX(Math.PI / 2);
 
-    const positions = [
-      // Front left
-      { x: halfLength * 0.7, y: wheelY, z: halfWidth * 0.9 },
-      // Front right
-      { x: halfLength * 0.7, y: wheelY, z: -halfWidth * 0.9 },
-      // Rear left
-      { x: -halfLength * 0.7, y: wheelY, z: halfWidth * 0.9 },
-      // Rear right
-      { x: -halfLength * 0.7, y: wheelY, z: -halfWidth * 0.9 }
-    ];
-    
-    positions.forEach(pos => {
-      const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-      // Rotate so the cylinder axis aligns with the car's width (z), like a real wheel
-      // Align wheel cylinders so they sit correctly beside the car (rotate 90deg around X)
-      wheel.rotation.x = Math.PI / 2;
-      wheel.position.set(pos.x, pos.y, pos.z);
-      wheel.castShadow = true;
-      group.add(wheel);
-    });
-  }
-  
-  createPhysicsBody(position) {
-    const shape = new CANNON.Box(new CANNON.Vec3(
-      this.config.vehicle.length / 2,
-      this.config.vehicle.height / 2,
-      this.config.vehicle.width / 2
-    ));
-    
-    this.body = new CANNON.Body({
-      mass: this.config.vehicle.mass,
-      shape: shape,
-      position: new CANNON.Vec3(position.x, position.y, position.z),
-      linearDamping: 0.1,
-      angularDamping: 0.2
-    });
-    
-    // Prevent car from tipping too easily
-    this.body.fixedRotation = false;
-    this.body.updateMassProperties();
-    
-    this.physics.addBody(this.id, this.body);
-    
-    // Contact listener for jump
-    this.body.addEventListener('collide', (e) => {
-      // Check if we hit the ground
-      const contact = e.contact;
-      const normal = contact.ni;
-      
-      // If normal points up, we're on ground
-      if (normal.y > 0.5) {
-        this.canJump = true;
-      }
-      
-      // Collision sound logic
-      // Calculate relative velocity along normal
-      const relativeVelocity = e.contact.getImpactVelocityAlongNormal();
-      
-      if (Math.abs(relativeVelocity) > 5) {
-        // Trigger collision event
-        // We can't access GameState here directly, so we store it on the instance
-        // and GameSimulation picks it up, or we pass a callback.
-        // For simplicity, let's mark it as a property the simulation checks.
-        this.lastCollisionForce = Math.abs(relativeVelocity);
-      }
-    });
-    
-    this.updateMesh();
+    for (let i = 0; i < 4; i++) {
+      const wheelMesh = new THREE.Mesh(wheelGeometry, wheelMaterial);
+      wheelMesh.castShadow = true;
+      this.mesh.add(wheelMesh);
+      this.wheelMeshes.push(wheelMesh);
+    }
   }
   
   applyCommands(commands, deltaTime) {
     if (!commands) return;
     
-    const forward = new CANNON.Vec3(1, 0, 0);
-    const right = new CANNON.Vec3(0, 0, 1);
+    // Steering
+    const maxSteerVal = 0.5;
+    const steerSpeed = 2.0 * deltaTime;
     
-    // Rotate direction vectors by car's rotation
-    this.body.quaternion.vmult(forward, forward);
-    this.body.quaternion.vmult(right, right);
+    let targetSteer = 0;
+    if (commands.left) targetSteer = maxSteerVal;
+    if (commands.right) targetSteer = -maxSteerVal;
     
-    // Forward/backward
+    // Simple Lerp for steering
+    this.steeringValue += (targetSteer - this.steeringValue) * 0.2;
+    
+    this.vehicle.setSteeringValue(this.steeringValue, 0);
+    this.vehicle.setSteeringValue(this.steeringValue, 1);
+    
+    // Engine Force
+    const maxForce = this.config.vehicle.acceleration * this.config.vehicle.mass; // ~2700
+    const brakeForce = this.config.vehicle.braking * this.config.vehicle.mass;
+    
+    let engineForce = 0;
+    let brake = 0;
+    
     if (commands.forward) {
-      this.body.applyForce(
-        forward.scale(this.config.vehicle.acceleration * this.config.vehicle.mass),
-        this.body.position
-      );
-    }
-    if (commands.backward) {
-      this.body.applyForce(
-        forward.scale(-this.config.vehicle.braking * this.config.vehicle.mass),
-        this.body.position
-      );
+      engineForce = maxForce;
+    } else if (commands.backward) {
+      engineForce = -maxForce / 2; // Reverse is slower
     }
     
-    // Turning (only when moving)
-    const speed = this.body.velocity.length();
-    if (speed > 1) {
-      if (commands.left) {
-        this.body.angularVelocity.y += this.config.vehicle.turnSpeed * deltaTime;
-      }
-      if (commands.right) {
-        this.body.angularVelocity.y -= this.config.vehicle.turnSpeed * deltaTime;
-      }
+    // Automatic braking if no input
+    if (!commands.forward && !commands.backward) {
+      brake = 10;
     }
     
-    // Jump
-    if (commands.jump && this.canJump) {
-      this.body.velocity.y = this.config.vehicle.jumpForce;
-      this.canJump = false;
-      this.justJumped = true; // Flag for audio
-    }
+    // Apply to rear wheels (RWD) or AWD
+    this.vehicle.applyEngineForce(engineForce, 2);
+    this.vehicle.applyEngineForce(engineForce, 3);
+    this.vehicle.applyEngineForce(engineForce, 0); // AWD for better control
+    this.vehicle.applyEngineForce(engineForce, 1);
+    
+    this.vehicle.setBrake(brake, 0);
+    this.vehicle.setBrake(brake, 1);
+    this.vehicle.setBrake(brake, 2);
+    this.vehicle.setBrake(brake, 3);
     
     // Boost
     this.isBoosting = false;
     if (commands.boost && this.boost > 0) {
-      this.body.applyForce(
-        forward.scale(this.config.vehicle.boostForce * this.config.vehicle.mass),
-        this.body.position
-      );
-      this.boost = Math.max(0, this.boost - this.config.vehicle.boostDrainRate * deltaTime);
       this.isBoosting = true;
+      const forward = new CANNON.Vec3(1, 0, 0);
+      this.chassisBody.quaternion.vmult(forward, forward);
+      
+      const boostForce = this.config.vehicle.boostForce * this.config.vehicle.mass;
+      this.chassisBody.applyForce(forward.scale(boostForce), this.chassisBody.position);
+      
+      this.boost = Math.max(0, this.boost - this.config.vehicle.boostDrainRate * deltaTime);
     } else {
-      // Regenerate boost
       this.boost = Math.min(100, this.boost + this.config.vehicle.boostRegenRate * deltaTime);
     }
     
-    // Limit max speed
-    const currentSpeed = this.body.velocity.length();
-    if (currentSpeed > this.config.vehicle.maxSpeed) {
-      this.body.velocity.scale(this.config.vehicle.maxSpeed / currentSpeed, this.body.velocity);
+    // Jump
+    const onGround = this.vehicle.numWheelsOnGround > 0;
+    if (commands.jump && onGround) {
+      const up = new CANNON.Vec3(0, 1, 0);
+      this.chassisBody.quaternion.vmult(up, up);
+      this.chassisBody.velocity.vadd(up.scale(this.config.vehicle.jumpForce), this.chassisBody.velocity);
+      this.justJumped = true;
     }
     
+    // Air Control (Pitch/Yaw/Roll adjustment while in air)
+    if (!onGround) {
+      const rotSpeed = 2.0 * deltaTime;
+      const torque = new CANNON.Vec3(0, 0, 0);
+      
+      if (commands.forward) torque.z -= rotSpeed * 500; // Pitch down
+      if (commands.backward) torque.z += rotSpeed * 500; // Pitch up
+      if (commands.left) torque.y += rotSpeed * 500; // Yaw left
+      if (commands.right) torque.y -= rotSpeed * 500; // Yaw right
+      
+      // Transform torque to world space
+      this.chassisBody.quaternion.vmult(torque, torque);
+      this.chassisBody.angularVelocity.vadd(torque, this.chassisBody.angularVelocity);
+    }
+
     this.updateMesh();
   }
   
   updateMesh() {
-    this.mesh.position.copy(this.body.position);
-    this.mesh.quaternion.copy(this.body.quaternion);
+    // 1. Update Group position to match Chassis
+    this.mesh.position.copy(this.chassisBody.position);
+    this.mesh.quaternion.copy(this.chassisBody.quaternion);
+    
+    // 2. Update Wheel Meshes
+    // Calculate inverse chassis transform to convert world wheel pos to local
+    const invPos = this.chassisBody.position.clone().negate();
+    const invQuat = this.chassisBody.quaternion.clone().inverse();
+    
+    for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
+      this.vehicle.updateWheelTransform(i);
+      const t = this.vehicle.wheelInfos[i].worldTransform;
+      
+      // Convert world transform 't' to local space of 'this.mesh'
+      // LocalPos = InvQuat * (WorldPos + InvPos)
+      const worldPos = t.position;
+      const localPos = new CANNON.Vec3();
+      worldPos.vadd(invPos, localPos);
+      invQuat.vmult(localPos, localPos);
+      
+      // LocalRot = InvQuat * WorldRot
+      const worldRot = t.quaternion;
+      const localRot = invQuat.mult(worldRot);
+      
+      this.wheelMeshes[i].position.copy(localPos);
+      this.wheelMeshes[i].quaternion.copy(localRot);
+    }
   }
   
   setPosition(position) {
-    this.body.position.set(position.x, position.y, position.z);
-    this.body.quaternion.set(0, 0, 0, 1);
+    this.chassisBody.position.set(position.x, position.y + 2, position.z); // Spawn safe
+    this.chassisBody.velocity.set(0, 0, 0);
+    this.chassisBody.angularVelocity.set(0, 0, 0);
+    this.chassisBody.quaternion.set(0, 0, 0, 1);
+    this.steeringValue = 0;
     this.updateMesh();
   }
   
   setVelocity(velocity) {
-    this.body.velocity.set(velocity.x, velocity.y, velocity.z);
-    this.body.angularVelocity.set(0, 0, 0);
+    this.chassisBody.velocity.set(velocity.x, velocity.y, velocity.z);
+    this.chassisBody.angularVelocity.set(0, 0, 0);
   }
   
   setTeam(team) {
     this.team = team;
-    // Update mesh color
     const teamColor = this.config.teams[team].color;
-    this.mesh.children[0].material.color.setHex(teamColor);
+    this.chassisMesh.material.color.setHex(teamColor);
   }
   
   getState() {
     return {
       position: {
-        x: this.body.position.x,
-        y: this.body.position.y,
-        z: this.body.position.z
+        x: this.chassisBody.position.x,
+        y: this.chassisBody.position.y,
+        z: this.chassisBody.position.z
       },
       velocity: {
-        x: this.body.velocity.x,
-        y: this.body.velocity.y,
-        z: this.body.velocity.z
+        x: this.chassisBody.velocity.x,
+        y: this.chassisBody.velocity.y,
+        z: this.chassisBody.velocity.z
       },
       rotation: {
-        x: this.body.quaternion.x,
-        y: this.body.quaternion.y,
-        z: this.body.quaternion.z
+        x: this.chassisBody.quaternion.x,
+        y: this.chassisBody.quaternion.y,
+        z: this.chassisBody.quaternion.z
       },
       boost: this.boost,
-      onGround: this.canJump,
+      onGround: this.vehicle.numWheelsOnGround > 0,
       isBoosting: this.isBoosting
     };
+  }
+  
+  get body() {
+    return this.chassisBody;
   }
 }

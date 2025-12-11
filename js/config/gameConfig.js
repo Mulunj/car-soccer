@@ -24,7 +24,18 @@ export const GameConfig = {
     boostForce: 25,
     boostCapacity: 100,
     boostRegenRate: 10, // per second
-    boostDrainRate: 33.3 // per second (3 seconds full boost)
+    boostDrainRate: 33.3, // per second (3 seconds full boost)
+    
+    // Suspension & Wheel settings (RaycastVehicle)
+    suspensionStiffness: 30,
+    suspensionRestLength: 0.6,
+    frictionSlip: 5,
+    dampingRelaxation: 2.3,
+    dampingCompression: 4.4,
+    maxSuspensionForce: 100000,
+    rollInfluence: 0.01,
+    axleWidth: 2.2,
+    suspensionPos: 0.2 // Height relative to chassis center
   },
 
   // Ball physics
