@@ -14,11 +14,12 @@ export class PhysicsSystem {
   init() {
     // Create physics world
     this.world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -30, 0)
+      gravity: new CANNON.Vec3(0, -25, 0)
     });
 
     // Set solver iterations for better stability
-    this.world.solver.iterations = 10;
+    this.world.solver.iterations = 15;
+    this.world.solver.tolerance = 0.001;
 
     // Enable collision detection
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);
@@ -29,8 +30,8 @@ export class PhysicsSystem {
       defaultMaterial,
       defaultMaterial,
       {
-        friction: 0.1,
-        restitution: 0.2
+        friction: 0.6,
+        restitution: 0.1
       }
     );
     this.world.addContactMaterial(defaultContactMaterial);

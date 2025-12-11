@@ -39,11 +39,12 @@ export class Vehicle {
     // By moving the shape UP relative to the body center, the body center (mass) ends up lower.
     this.chassisBody = new CANNON.Body({
       mass: this.config.vehicle.mass,
-      position: new CANNON.Vec3(position.x, position.y + 3, position.z), // Spawn slightly higher
-      angularDamping: 0.5
+      position: new CANNON.Vec3(position.x, position.y + 2, position.z), // Spawn slightly higher
+      angularDamping: 0.6,
+      linearDamping: 0.1
     });
 
-    const comOffset = 0.5; // Offset shape UP -> Lowers COM
+    const comOffset = 0.2; // Smaller offset for more neutral behavior
     this.chassisBody.addShape(shape, new CANNON.Vec3(0, comOffset, 0));
     
     this.physics.addBody(this.id, this.chassisBody);
@@ -60,15 +61,15 @@ export class Vehicle {
       radius: 0.5,
       directionLocal: new CANNON.Vec3(0, -1, 0),
       suspensionStiffness: this.config.vehicle.suspensionStiffness || 30,
-      suspensionRestLength: this.config.vehicle.suspensionRestLength || 0.6,
-      frictionSlip: this.config.vehicle.frictionSlip || 1.4,
+      suspensionRestLength: this.config.vehicle.suspensionRestLength || 0.5,
+      frictionSlip: this.config.vehicle.frictionSlip || 2.0,
       dampingRelaxation: this.config.vehicle.dampingRelaxation || 2.3,
       dampingCompression: this.config.vehicle.dampingCompression || 4.4,
-      maxSuspensionForce: this.config.vehicle.maxSuspensionForce || 100000,
-      rollInfluence: this.config.vehicle.rollInfluence || 0.01,
+      maxSuspensionForce: this.config.vehicle.maxSuspensionForce || 120000,
+      rollInfluence: this.config.vehicle.rollInfluence || 0.2,
       axleLocal: new CANNON.Vec3(0, 0, 1),
       chassisConnectionPointLocal: new CANNON.Vec3(1, 1, 0),
-      maxSuspensionTravel: 0.3,
+      maxSuspensionTravel: 0.4,
       customSlidingRotationalSpeed: -20,
       useCustomSlidingRotationalSpeed: true
     };
@@ -136,7 +137,7 @@ export class Vehicle {
     this.chassisMesh.castShadow = true;
     
     // Match the physics shape offset
-    this.chassisMesh.position.set(0, 0.5, 0); // comOffset
+    this.chassisMesh.position.set(0, 0.2, 0); // comOffset
     
     this.mesh.add(this.chassisMesh);
     
@@ -191,7 +192,7 @@ export class Vehicle {
     this.vehicle.setSteeringValue(this.steeringValue, 1);
     
     // Engine Force
-    const maxForce = this.config.vehicle.acceleration * this.config.vehicle.mass; // ~2700
+    const maxForce = this.config.vehicle.acceleration * this.config.vehicle.mass;
     const brakeForce = this.config.vehicle.braking * this.config.vehicle.mass;
     
     let engineForce = 0;
@@ -200,19 +201,19 @@ export class Vehicle {
     if (commands.forward) {
       engineForce = maxForce;
     } else if (commands.backward) {
-      engineForce = -maxForce / 2; // Reverse is slower
+      engineForce = -maxForce * 0.5; // Reverse is slower
     }
     
-    // Automatic braking if no input
+    // Automatic light braking if no input
     if (!commands.forward && !commands.backward) {
-      brake = 10;
+      brake = brakeForce * 0.05;
     }
     
-    // Apply to rear wheels (RWD) or AWD
+    // Rear-wheel drive only to reduce nose-diving torque
+    this.vehicle.applyEngineForce(0, 0);
+    this.vehicle.applyEngineForce(0, 1);
     this.vehicle.applyEngineForce(engineForce, 2);
     this.vehicle.applyEngineForce(engineForce, 3);
-    this.vehicle.applyEngineForce(engineForce, 0); // AWD for better control
-    this.vehicle.applyEngineForce(engineForce, 1);
     
     this.vehicle.setBrake(brake, 0);
     this.vehicle.setBrake(brake, 1);
@@ -239,7 +240,8 @@ export class Vehicle {
     if (commands.jump && onGround) {
       const up = new CANNON.Vec3(0, 1, 0);
       this.chassisBody.quaternion.vmult(up, up);
-      this.chassisBody.velocity.vadd(up.scale(this.config.vehicle.jumpForce), this.chassisBody.velocity);
+      const jumpStrength = this.config.vehicle.jumpForce;
+      this.chassisBody.velocity.vadd(up.scale(jumpStrength), this.chassisBody.velocity);
       this.justJumped = true;
     }
     
@@ -255,7 +257,7 @@ export class Vehicle {
       if (commands.forward || commands.backward || commands.jump || commands.left || commands.right) {
         
         // Apply rotation torque to flip upright
-        const torqueStrength = 400 * deltaTime;
+        const torqueStrength = 200 * deltaTime;
         const torque = new CANNON.Vec3(0, 0, 0);
         
         // Pitch control (Forward/Back)
@@ -266,12 +268,19 @@ export class Vehicle {
         if (commands.left) torque.z += torqueStrength;
         if (commands.right) torque.z -= torqueStrength;
 
-        // Jump button provides a big kick to help flip
+        // Jump button provides a kick to help flip, but gentler now
         if (commands.jump) {
-            // Upward impulse
-            this.chassisBody.velocity.y += 5 * deltaTime;
-            // Roll torque
-            torque.z -= torqueStrength * 5; 
+            this.chassisBody.velocity.y += 2 * deltaTime;
+            torque.z -= torqueStrength * 3; 
+        }
+
+        // Clamp torque magnitude to avoid wild spinning
+        if (torque.lengthSquared() > 0) {
+          const maxTorque = 50;
+          const len = torque.length();
+          if (len > maxTorque) {
+            torque.scale(maxTorque / len, torque);
+          }
         }
 
         // Apply local torque
@@ -282,28 +291,43 @@ export class Vehicle {
     
     // Air Control (Pitch/Yaw/Roll adjustment while in air)
     if (!onGround && !isFlipped) {
-      // Reduce rotation power significantly to prevent uncontrollable spinning
-      const rotSpeed = 1.0 * deltaTime; 
+      const rotSpeed = 0.5 * deltaTime; 
       const torque = new CANNON.Vec3(0, 0, 0);
       
-      if (commands.forward) torque.z -= rotSpeed * 200; // Pitch down
-      if (commands.backward) torque.z += rotSpeed * 200; // Pitch up
-      if (commands.left) torque.y += rotSpeed * 200; // Yaw left
-      if (commands.right) torque.y -= rotSpeed * 200; // Yaw right
-      
-      // Roll adjustment (auto-leveling)
-      // If no input, try to upright the car slightly?
-      // For now just basic air control.
+      if (commands.forward) torque.z -= rotSpeed * 120; // Pitch down
+      if (commands.backward) torque.z += rotSpeed * 120; // Pitch up
+      if (commands.left) torque.y += rotSpeed * 120; // Yaw left
+      if (commands.right) torque.y -= rotSpeed * 120; // Yaw right;
+
+      // Clamp air torque
+      if (torque.lengthSquared() > 0) {
+        const maxTorque = 40;
+        const len = torque.length();
+        if (len > maxTorque) {
+          torque.scale(maxTorque / len, torque);
+        }
+      }
 
       // Transform torque to world space
       this.chassisBody.quaternion.vmult(torque, torque);
       this.chassisBody.angularVelocity.vadd(torque, this.chassisBody.angularVelocity);
 
       // Stronger angular damping in air to prevent yeeting
-      this.chassisBody.angularVelocity.scale(0.95, this.chassisBody.angularVelocity);
+      this.chassisBody.angularVelocity.scale(0.96, this.chassisBody.angularVelocity);
     } else {
        // Reset regular damping when on ground
-       this.chassisBody.angularDamping = 0.5;
+       this.chassisBody.angularDamping = 0.6;
+
+       // Gentle upright stabilization while on ground
+       const upWorld = new CANNON.Vec3(0, 1, 0);
+       this.chassisBody.quaternion.vmult(upWorld, upWorld);
+       const tilt = new CANNON.Vec3(upWorld.x, 0, upWorld.z);
+       const tiltMag = tilt.length();
+       if (tiltMag > 0.001) {
+         const correctionStrength = 5 * deltaTime;
+         tilt.scale(-correctionStrength / tiltMag, tilt);
+         this.chassisBody.angularVelocity.vadd(tilt, this.chassisBody.angularVelocity);
+       }
     }
 
     this.updateMesh();
