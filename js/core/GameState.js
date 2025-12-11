@@ -48,7 +48,7 @@ export class GameState {
       team,
       position: { ...position },
       velocity: { x: 0, y: 0, z: 0 },
-      rotation: { ...rotation },
+      rotation: { ...rotation, w: rotation.w ?? 1 },
       boost: 100,
       onGround: false
     };

@@ -15,6 +15,10 @@ export class RenderSystem {
     this.renderObjects = null;
     this.cameraTarget = new THREE.Vector3();
     this.cameraPosition = new THREE.Vector3();
+
+    // Camera orbit offsets (relative to car)
+    this.cameraYawOffset = 0;
+    this.cameraPitchOffset = 0;
   }
   
   async init() {
@@ -88,41 +92,75 @@ export class RenderSystem {
     }
   }
   
-  render(gameState) {
+  render(gameState, cameraInput = { x: 0, y: 0 }, deltaTime = 0) {
     // Update camera to follow player
     const playerVehicle = gameState.vehicles['player'];
     if (playerVehicle && this.renderObjects?.vehicles['player']) {
-      this.updateCamera(playerVehicle);
+      this.updateCamera(playerVehicle, cameraInput, deltaTime);
     }
     
     // Render scene
     this.renderer.render(this.scene, this.camera);
   }
   
-  updateCamera(playerState) {
+  updateCamera(playerState, cameraInput = { x: 0, y: 0 }, deltaTime = 0) {
     const targetPos = new THREE.Vector3(
       playerState.position.x,
       playerState.position.y,
       playerState.position.z
     );
     
-    // Smooth camera follow
+    // Smooth camera follow target
     this.cameraTarget.lerp(targetPos, this.config.camera.stiffness);
-    
-    // Position camera behind and above the vehicle
-    const offset = new THREE.Vector3(
-      -this.config.camera.distance,
-      this.config.camera.height,
-      0
-    );
-    
-    // Rotate offset based on vehicle rotation
+
+    // Vehicle orientation
     const vehicleQuat = new THREE.Quaternion(
       playerState.rotation.x,
       playerState.rotation.y,
       playerState.rotation.z,
-      1
+      playerState.rotation.w || 1
     ).normalize();
+
+    // Compute forward speed to know when car is moving forward
+    const forwardWorld = new THREE.Vector3(1, 0, 0).applyQuaternion(vehicleQuat);
+    const vel = new THREE.Vector3(
+      playerState.velocity.x,
+      playerState.velocity.y,
+      playerState.velocity.z
+    );
+    const forwardSpeed = vel.dot(forwardWorld);
+    const isMovingForward = forwardSpeed > 2; // small threshold
+
+    // Update camera orbit offsets from right stick
+    const yawSpeed = 1.5;   // radians/sec
+    const pitchSpeed = 1.2; // radians/sec
+    const returnSpeed = 2.0; // lerp speed back to default
+
+    if (deltaTime > 0) {
+      // Apply stick input
+      if (cameraInput.x !== 0 || cameraInput.y !== 0) {
+        this.cameraYawOffset += -cameraInput.x * yawSpeed * deltaTime;
+        this.cameraPitchOffset += -cameraInput.y * pitchSpeed * deltaTime;
+      } else if (isMovingForward) {
+        // Auto-orbit back to default when moving forward and stick is neutral
+        this.cameraYawOffset += (0 - this.cameraYawOffset) * Math.min(1, returnSpeed * deltaTime);
+        this.cameraPitchOffset += (0 - this.cameraPitchOffset) * Math.min(1, returnSpeed * deltaTime);
+      }
+    }
+
+    // Clamp vertical rotation
+    const maxPitch = this.config.camera.maxVerticalAngle;
+    this.cameraPitchOffset = Math.max(-maxPitch, Math.min(maxPitch, this.cameraPitchOffset));
+
+    // Base offset in vehicle local space (behind car along -X)
+    const offset = new THREE.Vector3(-this.config.camera.distance, 0, 0);
+
+    // Apply local camera orbit (pitch then yaw)
+    const camEuler = new THREE.Euler(this.cameraPitchOffset, this.cameraYawOffset, 0, 'YXZ');
+    offset.applyEuler(camEuler);
+    offset.y += this.config.camera.height;
+
+    // Transform offset by vehicle rotation to world space
     offset.applyQuaternion(vehicleQuat);
     
     const desiredPosition = this.cameraTarget.clone().add(offset);

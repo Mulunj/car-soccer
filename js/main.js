@@ -165,8 +165,11 @@ class Game {
       this.hud.update(this.state);
     }
 
+    // Camera input from right stick
+    const cameraInput = this.inputSystem.getCameraInput();
+
     // Always render
-    this.renderSystem.render(this.state);
+    this.renderSystem.render(this.state, cameraInput, deltaTime);
   };
   
   handleEvents() {

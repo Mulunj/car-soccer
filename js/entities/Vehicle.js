@@ -297,7 +297,8 @@ export class Vehicle {
       rotation: {
         x: this.chassisBody.quaternion.x,
         y: this.chassisBody.quaternion.y,
-        z: this.chassisBody.quaternion.z
+        z: this.chassisBody.quaternion.z,
+        w: this.chassisBody.quaternion.w
       },
       boost: this.boost,
       onGround: this.vehicle.numWheelsOnGround > 0,

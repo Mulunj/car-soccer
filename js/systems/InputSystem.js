@@ -19,6 +19,9 @@ export class InputSystem {
 
     // Track gamepad button state for edge detection
     this.prevGamepadButtons = [];
+
+    // Right-stick camera input
+    this.cameraInput = { x: 0, y: 0 };
   }
   
   init() {
@@ -316,6 +319,13 @@ export class InputSystem {
       this.prevGamepadButtons[downIdx] = downNow;
     }
 
+    // Right stick for camera input
+    const rx = gp.axes[2] ?? 0;
+    const ry = gp.axes[3] ?? 0;
+    const camDeadzone = 0.2;
+    this.cameraInput.x = Math.abs(rx) > camDeadzone ? rx : 0;
+    this.cameraInput.y = Math.abs(ry) > camDeadzone ? ry : 0;
+
     // Confirm (A)
     const confirmName = 'A';
     const confirmIdx = this.bindings.getGamepadButtonIndex(confirmName);
@@ -339,6 +349,10 @@ export class InputSystem {
       }
       this.prevGamepadButtons[backIdx] = !!pressed;
     }
+  }
+
+  getCameraInput() {
+    return { ...this.cameraInput };
   }
   
   on(event, callback) {

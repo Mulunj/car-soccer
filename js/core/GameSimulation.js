@@ -53,7 +53,7 @@ export class GameSimulation {
     vehicle.init(spawnPos);
     
     this.vehicles[id] = vehicle;
-    this.state.addVehicle(id, team, spawnPos, { x: 0, y: 0, z: 0 });
+    this.state.addVehicle(id, team, spawnPos, { x: 0, y: 0, z: 0, w: 1 });
   }
   
   addAIVehicles() {
@@ -68,7 +68,7 @@ export class GameSimulation {
       vehicle.init(spawnPos);
       
       this.vehicles[id] = vehicle;
-      this.state.addVehicle(id, 'blue', spawnPos, { x: 0, y: 0, z: 0 });
+      this.state.addVehicle(id, 'blue', spawnPos, { x: 0, y: 0, z: 0, w: 1 });
     }
     
     for (let i = 0; i < orangeCount; i++) {
@@ -78,7 +78,7 @@ export class GameSimulation {
       vehicle.init(spawnPos);
       
       this.vehicles[id] = vehicle;
-      this.state.addVehicle(id, 'orange', spawnPos, { x: 0, y: 0, z: 0 });
+      this.state.addVehicle(id, 'orange', spawnPos, { x: 0, y: 0, z: 0, w: 1 });
     }
   }
   
