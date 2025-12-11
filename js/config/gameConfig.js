@@ -16,27 +16,27 @@ export const GameConfig = {
     width: 3, // Significantly narrower to prevent ground clipping (was 3.5)
     length: 6,
     height: 1.2, // Lower profile
-    maxSpeed: 40, 
-    maxSpin: 4,
-    acceleration: 8,
-    braking: 35,
+    maxSpeed: 45, 
+    maxSpin: 6,
+    acceleration: 10,
+    braking: 30,
     turnSpeed: 3.0,
-    jumpForce: 6,
-    boostForce: 24,
+    jumpForce: 10,
+    boostForce: 30,
     boostCapacity: 100,
     boostRegenRate: 10,
     boostDrainRate: 33.3,
     
     // Suspension & Wheel settings (RaycastVehicle)
     suspensionStiffness: 60, // Optimized stiffness
-    suspensionRestLength: 0.5, // Slightly shorter to reduce clipping
-    frictionSlip: 2.0, // More grip to reduce uncontrolled spinning
+    suspensionRestLength: 0.6, // Adjusted for new connection points
+    frictionSlip: 1.5, // Good grip but allows some slide
     dampingRelaxation: 2.3,
     dampingCompression: 4.4,
-    maxSuspensionForce: 120000,
-    rollInfluence: 0.2, // Stronger anti-roll, keeps car flatter
+    maxSuspensionForce: 100000,
+    rollInfluence: 0.5, // Stronger anti-roll
     axleWidth: 3.0, // Wider than body to prevent body scraping
-    suspensionPos: -0.2 // Lower wheel connection points slightly
+    suspensionPos: 0.0 // Connection point offset
   },
 
   // Ball physics
