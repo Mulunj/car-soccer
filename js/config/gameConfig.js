@@ -16,26 +16,27 @@ export const GameConfig = {
     width: 3.5,
     length: 5,
     height: 1.5,
-    maxSpeed: 40,
+    maxSpeed: 45, // Hard cap on physics velocity
+    maxSpin: 5,   // Hard cap on angular velocity (radians/sec)
     acceleration: 15,
     braking: 25,
     turnSpeed: 2.5,
-    jumpForce: 12,
+    jumpForce: 8, // Reduced from 12 to prevent flying too high
     boostForce: 25,
     boostCapacity: 100,
-    boostRegenRate: 10, // per second
-    boostDrainRate: 33.3, // per second (3 seconds full boost)
+    boostRegenRate: 10,
+    boostDrainRate: 33.3,
     
     // Suspension & Wheel settings (RaycastVehicle)
-    suspensionStiffness: 30,
-    suspensionRestLength: 0.6,
-    frictionSlip: 5,
-    dampingRelaxation: 2.3,
-    dampingCompression: 4.4,
-    maxSuspensionForce: 100000,
-    rollInfluence: 0.01,
-    axleWidth: 2.2,
-    suspensionPos: 0.2 // Height relative to chassis center
+    suspensionStiffness: 50, // Stiffer suspension
+    suspensionRestLength: 0.8, // Increased for better ground clearance
+    frictionSlip: 2.0, // Reduced to prevent flipping on sharp turns
+    dampingRelaxation: 2.5, // Increased damping
+    dampingCompression: 4.5, // Increased damping
+    maxSuspensionForce: 200000,
+    rollInfluence: 0.2, // Increased to keep car upright
+    axleWidth: 2.6, // Wider stance for stability
+    suspensionPos: 0.1 // Lower mount point
   },
 
   // Ball physics

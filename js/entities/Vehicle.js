@@ -70,23 +70,25 @@ export class Vehicle {
     };
     
     const halfLength = this.config.vehicle.length / 2;
+    // Use explicit axleWidth from config, or fallback
     const axleWidth = (this.config.vehicle.axleWidth || this.config.vehicle.width * 0.7) / 2;
     const heightOffset = -this.config.vehicle.height / 2 + (this.config.vehicle.suspensionPos || 0.2);
 
-    // Front Left (0)
-    options.chassisConnectionPointLocal.set(halfLength * 0.7, heightOffset, axleWidth);
-    this.vehicle.addWheel(options);
-
-    // Front Right (1)
+    // Swap signs to match indexRightAxis=2 (Z is Right)
+    // Front Left (0) - Negative Z
     options.chassisConnectionPointLocal.set(halfLength * 0.7, heightOffset, -axleWidth);
     this.vehicle.addWheel(options);
 
-    // Rear Left (2)
-    options.chassisConnectionPointLocal.set(-halfLength * 0.7, heightOffset, axleWidth);
+    // Front Right (1) - Positive Z
+    options.chassisConnectionPointLocal.set(halfLength * 0.7, heightOffset, axleWidth);
     this.vehicle.addWheel(options);
 
-    // Rear Right (3)
+    // Rear Left (2) - Negative Z
     options.chassisConnectionPointLocal.set(-halfLength * 0.7, heightOffset, -axleWidth);
+    this.vehicle.addWheel(options);
+
+    // Rear Right (3) - Positive Z
+    options.chassisConnectionPointLocal.set(-halfLength * 0.7, heightOffset, axleWidth);
     this.vehicle.addWheel(options);
 
     this.vehicle.addToWorld(this.physics.world);
@@ -146,6 +148,21 @@ export class Vehicle {
   
   applyCommands(commands, deltaTime) {
     if (!commands) return;
+
+    // Safety Clamps - Prevent physics explosions
+    const maxSpeed = this.config.vehicle.maxSpeed || 40;
+    const currentSpeedSq = this.chassisBody.velocity.lengthSquared();
+    if (currentSpeedSq > maxSpeed * maxSpeed) {
+      this.chassisBody.velocity.normalize();
+      this.chassisBody.velocity.scale(maxSpeed, this.chassisBody.velocity);
+    }
+
+    const maxSpin = this.config.vehicle.maxSpin || 5;
+    const currentSpinSq = this.chassisBody.angularVelocity.lengthSquared();
+    if (currentSpinSq > maxSpin * maxSpin) {
+      this.chassisBody.angularVelocity.normalize();
+      this.chassisBody.angularVelocity.scale(maxSpin, this.chassisBody.angularVelocity);
+    }
     
     // Steering
     const maxSteerVal = 0.5;
@@ -216,17 +233,28 @@ export class Vehicle {
     
     // Air Control (Pitch/Yaw/Roll adjustment while in air)
     if (!onGround) {
-      const rotSpeed = 2.0 * deltaTime;
+      // Reduce rotation power significantly to prevent uncontrollable spinning
+      const rotSpeed = 1.0 * deltaTime; 
       const torque = new CANNON.Vec3(0, 0, 0);
       
-      if (commands.forward) torque.z -= rotSpeed * 500; // Pitch down
-      if (commands.backward) torque.z += rotSpeed * 500; // Pitch up
-      if (commands.left) torque.y += rotSpeed * 500; // Yaw left
-      if (commands.right) torque.y -= rotSpeed * 500; // Yaw right
+      if (commands.forward) torque.z -= rotSpeed * 200; // Pitch down
+      if (commands.backward) torque.z += rotSpeed * 200; // Pitch up
+      if (commands.left) torque.y += rotSpeed * 200; // Yaw left
+      if (commands.right) torque.y -= rotSpeed * 200; // Yaw right
       
+      // Roll adjustment (auto-leveling)
+      // If no input, try to upright the car slightly?
+      // For now just basic air control.
+
       // Transform torque to world space
       this.chassisBody.quaternion.vmult(torque, torque);
       this.chassisBody.angularVelocity.vadd(torque, this.chassisBody.angularVelocity);
+
+      // Stronger angular damping in air to prevent yeeting
+      this.chassisBody.angularVelocity.scale(0.95, this.chassisBody.angularVelocity);
+    } else {
+       // Reset regular damping when on ground
+       this.chassisBody.angularDamping = 0.5;
     }
 
     this.updateMesh();

@@ -248,26 +248,8 @@ export class InputSystem {
    * Should be called every frame regardless of pause state.
    */
   updateGamepad() {
-    // Get the first connected gamepad if none stored
-    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-    let gp = null;
-    
-    if (this.gamepad && this.gamepad.index !== undefined) {
-      gp = gamepads[this.gamepad.index];
-    }
-    
-    // Fallback: find first connected gamepad
-    if (!gp) {
-      for (let i = 0; i < gamepads.length; i++) {
-        if (gamepads[i]) {
-          gp = gamepads[i];
-          this.gamepad = gp;
-          this.prevGamepadButtons = new Array(gp.buttons.length).fill(false);
-          break;
-        }
-      }
-    }
-    
+    if (!this.gamepad) return;
+    const gp = navigator.getGamepads()[this.gamepad.index];
     if (!gp) return;
 
     // Ensure prevGamepadButtons has correct length
