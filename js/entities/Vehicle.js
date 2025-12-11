@@ -35,12 +35,16 @@ export class Vehicle {
       this.config.vehicle.width / 2
     ));
     
+    // Create body but add shape with offset to lower Center of Mass (COM)
+    // By moving the shape UP relative to the body center, the body center (mass) ends up lower.
     this.chassisBody = new CANNON.Body({
       mass: this.config.vehicle.mass,
-      shape: shape,
-      position: new CANNON.Vec3(position.x, position.y + 2, position.z), // Spawn slightly higher
+      position: new CANNON.Vec3(position.x, position.y + 3, position.z), // Spawn slightly higher
       angularDamping: 0.5
     });
+
+    const comOffset = 0.5; // Offset shape UP -> Lowers COM
+    this.chassisBody.addShape(shape, new CANNON.Vec3(0, comOffset, 0));
     
     this.physics.addBody(this.id, this.chassisBody);
     
@@ -70,9 +74,13 @@ export class Vehicle {
     };
     
     const halfLength = this.config.vehicle.length / 2;
-    // Use explicit axleWidth from config, or fallback
-    const axleWidth = (this.config.vehicle.axleWidth || this.config.vehicle.width * 0.7) / 2;
-    const heightOffset = -this.config.vehicle.height / 2 + (this.config.vehicle.suspensionPos || 0.2);
+    // Use explicit axleWidth from config
+    const axleWidth = (this.config.vehicle.axleWidth || 3.0) / 2;
+    
+    // Calculate height offset relative to body center
+    // We want connection points near the bottom of the OFFSET chassis shape
+    // Shape bottom is at: comOffset - height/2
+    const heightOffset = comOffset - (this.config.vehicle.height / 2) + (this.config.vehicle.suspensionPos || 0);
 
     // Swap signs to match indexRightAxis=2 (Z is Right)
     // Front Left (0) - Negative Z
@@ -126,6 +134,10 @@ export class Vehicle {
     
     this.chassisMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
     this.chassisMesh.castShadow = true;
+    
+    // Match the physics shape offset
+    this.chassisMesh.position.set(0, 0.5, 0); // comOffset
+    
     this.mesh.add(this.chassisMesh);
     
     // Wheel Meshes
@@ -214,9 +226,7 @@ export class Vehicle {
       const forward = new CANNON.Vec3(1, 0, 0);
       this.chassisBody.quaternion.vmult(forward, forward);
       
-      // Apply a force for boost that is defined in config.boostForce (don't multiply by mass again)
-      // This prevents the boost from scaling unexpectedly when mass is increased.
-      const boostForce = this.config.vehicle.boostForce;
+      const boostForce = this.config.vehicle.boostForce * this.config.vehicle.mass;
       this.chassisBody.applyForce(forward.scale(boostForce), this.chassisBody.position);
       
       this.boost = Math.max(0, this.boost - this.config.vehicle.boostDrainRate * deltaTime);
@@ -227,25 +237,51 @@ export class Vehicle {
     // Jump
     const onGround = this.vehicle.numWheelsOnGround > 0;
     if (commands.jump && onGround) {
-      // Use an impulse so heavier vehicles naturally receive smaller velocity change
       const up = new CANNON.Vec3(0, 1, 0);
       this.chassisBody.quaternion.vmult(up, up);
-
-      // Apply impulse (impulse magnitude is independent of current mass; deltaV = impulse / mass)
-      // This makes heavier cars jump less for the same configured jumpForce value.
-      try {
-        this.chassisBody.applyImpulse(up.scale(this.config.vehicle.jumpForce), this.chassisBody.position);
-      } catch (e) {
-        // Fallback if applyImpulse signature differs: directly adjust velocity with a mass-aware delta
-        const deltaV = up.scale(this.config.vehicle.jumpForce / (this.chassisBody.mass || 1));
-        this.chassisBody.velocity.vadd(deltaV, this.chassisBody.velocity);
-      }
-
+      this.chassisBody.velocity.vadd(up.scale(this.config.vehicle.jumpForce), this.chassisBody.velocity);
       this.justJumped = true;
     }
     
+    // Auto-flip / Recovery mechanics
+    // Detect if car is flipped or stuck on side
+    const up = new CANNON.Vec3(0, 1, 0);
+    this.chassisBody.quaternion.vmult(up, up);
+    const isFlipped = up.y < 0.3;
+    const isStuck = this.vehicle.numWheelsOnGround < 2 && Math.abs(this.chassisBody.velocity.y) < 0.1;
+
+    if (isFlipped || isStuck) {
+      // Allow flipping with movement keys or jump
+      if (commands.forward || commands.backward || commands.jump || commands.left || commands.right) {
+        
+        // Apply rotation torque to flip upright
+        const torqueStrength = 400 * deltaTime;
+        const torque = new CANNON.Vec3(0, 0, 0);
+        
+        // Pitch control (Forward/Back)
+        if (commands.forward) torque.x += torqueStrength;
+        if (commands.backward) torque.x -= torqueStrength;
+        
+        // Roll control (Left/Right)
+        if (commands.left) torque.z += torqueStrength;
+        if (commands.right) torque.z -= torqueStrength;
+
+        // Jump button provides a big kick to help flip
+        if (commands.jump) {
+            // Upward impulse
+            this.chassisBody.velocity.y += 5 * deltaTime;
+            // Roll torque
+            torque.z -= torqueStrength * 5; 
+        }
+
+        // Apply local torque
+        this.chassisBody.quaternion.vmult(torque, torque);
+        this.chassisBody.angularVelocity.vadd(torque, this.chassisBody.angularVelocity);
+      }
+    }
+    
     // Air Control (Pitch/Yaw/Roll adjustment while in air)
-    if (!onGround) {
+    if (!onGround && !isFlipped) {
       // Reduce rotation power significantly to prevent uncontrollable spinning
       const rotSpeed = 1.0 * deltaTime; 
       const torque = new CANNON.Vec3(0, 0, 0);

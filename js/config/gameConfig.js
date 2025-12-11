@@ -12,31 +12,31 @@ export const GameConfig = {
 
   // Vehicle physics
   vehicle: {
-    mass: 1200, // increased mass to make cars heavier and less prone to high jumps / flips
-    width: 3.5,
-    length: 5,
-    height: 1.5,
-    maxSpeed: 45, // Hard cap on physics velocity
-    maxSpin: 5,   // Hard cap on angular velocity (radians/sec)
-    acceleration: 15,
-    braking: 25,
-    turnSpeed: 2.5,
-    jumpForce: 8, // Reduced from 12 to prevent flying too high
-    boostForce: 25,
+    mass: 150, // Slightly reduced mass
+    width: 2.2, // Significantly narrower to prevent ground clipping (was 3.5)
+    length: 4.8,
+    height: 1.2, // Lower profile
+    maxSpeed: 45, 
+    maxSpin: 6,
+    acceleration: 20,
+    braking: 30,
+    turnSpeed: 3.0,
+    jumpForce: 10,
+    boostForce: 30,
     boostCapacity: 100,
     boostRegenRate: 10,
     boostDrainRate: 33.3,
     
     // Suspension & Wheel settings (RaycastVehicle)
-    suspensionStiffness: 50, // Stiffer suspension
-    suspensionRestLength: 0.8, // Increased for better ground clearance
-    frictionSlip: 2.0, // Reduced to prevent flipping on sharp turns
-    dampingRelaxation: 2.5, // Increased damping
-    dampingCompression: 4.5, // Increased damping
-    maxSuspensionForce: 200000,
-    rollInfluence: 0.2, // Increased to keep car upright
-    axleWidth: 2.6, // Wider stance for stability
-    suspensionPos: 0.1 // Lower mount point
+    suspensionStiffness: 60, // Optimized stiffness
+    suspensionRestLength: 0.6, // Adjusted for new connection points
+    frictionSlip: 1.5, // Good grip but allows some slide
+    dampingRelaxation: 2.3,
+    dampingCompression: 4.4,
+    maxSuspensionForce: 100000,
+    rollInfluence: 0.5, // Stronger anti-roll
+    axleWidth: 3.0, // Wider than body to prevent body scraping
+    suspensionPos: 0.0 // Connection point offset
   },
 
   // Ball physics
